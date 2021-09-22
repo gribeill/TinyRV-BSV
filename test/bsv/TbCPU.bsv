@@ -4,9 +4,10 @@ import RegFile::*;
 import RV32I::*;
 import Memories::*;
 import TinyRV::*;
+import Connectable::*;
 
 String input_file = "test_rv32i.hex";
-typedef 32 TestAddrWidth; 
+typedef 10 TestAddrWidth; 
 
 (*synthesize*)
 module mkTbCPU(Empty);

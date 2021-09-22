@@ -33,7 +33,7 @@ function Word mask_data(Word data, LSF3 mask);
 endfunction
 
 instance Connectable#(MemClient, RegFile#(Bit#(mem_w), Word))
-    provisos (Add#(a__, mem_w, AddrWidth));
+    provisos (Add#(a__, mem_w, AddrWidth)); //what does this do??
 
     module mkConnection#(MemClient client, RegFile#(Bit#(mem_w), Word) rf)(Empty);
 
