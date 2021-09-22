@@ -3,7 +3,7 @@ package Registers;
 import RegFile::*;
 import RV32I::*;
 
-//Register file 
+//Register file
 interface GPR_Ifc;
     (*always_ready*)
     method Word read_rs1(RegIdx rs1);

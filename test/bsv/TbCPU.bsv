@@ -1,13 +1,17 @@
 package TbCPU;
 
+//Library imports
 import RegFile::*;
+import Connectable::*;
+
+//Project imports
 import RV32I::*;
 import Memories::*;
 import TinyRV::*;
-import Connectable::*;
+
 
 String input_file = "test_rv32i.hex";
-typedef 10 TestAddrWidth; 
+typedef 10 TestAddrWidth; //Width of addresses in test memory.
 
 (*synthesize*)
 module mkTbCPU(Empty);

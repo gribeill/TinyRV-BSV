@@ -2,8 +2,10 @@ package ALU;
 
 import FIFO::*;
 import FIFOF::*;
+
 import RV32I::*;
 
+//Return type of combinatorial ALU operations.
 typedef struct {
     Word sum;
     Word minus;
@@ -12,6 +14,9 @@ typedef struct {
     bit  eq;
 } ALUops deriving (Bits);
 
+//ALU input operation
+//tagged ALUexec for ALU reg-reg operations and ALU reg-imm operations
+//tagged BRexec for calculating the branch predicate
 typedef union tagged {
     struct {
         ALUF3 f3;
@@ -20,6 +25,7 @@ typedef union tagged {
     BranchF3 BRexec;
 } ALUinput deriving (Bits, Eq);
 
+//Combinatorial ALU ops -- idea shamelessly stolen from FemtoRV32. 
 function ALUops do_alu_operations(Word input1, Word input2);
     Bit#(33) minus = {1'b1, ~input2} + {1'b0, input1} + 33'b1;
     return ALUops{ sum: input1 + input2, 
@@ -29,12 +35,17 @@ function ALUops do_alu_operations(Word input1, Word input2);
                     eq: (minus[31:0] == 0) ? 1 : 0}; 
 endfunction
 
+//Type of shift
 typedef enum {
     SLL,
     SRA,
     SRL
 } ShiftType deriving (Bits, Eq);
 
+//ALU interface
+//Split into a write (request ALU calc) and read (get back ALU calc) 
+//since shifts are multi-cycle.
+//TODO: probably could be a ClientServer?
 interface ALU_Ifc;
     method Action write(ALUinput in, Word v1, Word v2);
     method ActionValue#(Word) read();
