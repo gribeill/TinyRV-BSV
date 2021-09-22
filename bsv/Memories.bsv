@@ -47,7 +47,7 @@ instance Connectable#(MemClient, RegFile#(Bit#(mem_w), Word))
 
         rule connect_requests;
             let request <- client.request.get();
-            Bit#(mem_w) addr = truncate(request.addr);
+            Bit#(mem_w) addr = truncate(request.addr >> 2);
             Word old_data = rf.sub(addr);
             if (request.write) begin
                 let newdata = mask_data(request.data, request.mask);
