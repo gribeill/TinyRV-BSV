@@ -16,18 +16,21 @@ MemAddr reset_addr = 0;
 
 //CPU pipeline stages. 
 typedef enum {
-    FETCH    = 7'b0000001,
-    DECODE   = 7'b0000010,
-    EXEC     = 7'b0000100,
-    WAIT     = 7'b0001000,
-    MEM      = 7'b0010000,
-    WAIT_MEM = 7'b0100000,
-    WB       = 7'b1000000
+    FETCH    = 8'b00000001,
+    DECODE   = 8'b00000010,
+    EXEC     = 8'b00000100,
+    WAIT     = 8'b00001000,
+    MEM      = 8'b00010000,
+    WAIT_MEM = 8'b00100000,
+    WB       = 8'b01000000,
+    HALT     = 8'b10000000
 } State deriving (Bits, Eq);
 
 
 interface CPU_Ifc;
     interface MemClient mem_client; 
+    method Bool running;
+    method Action restart();
 endinterface
 
 (*synthesize*)
@@ -94,7 +97,7 @@ module mkCPU(CPU_Ifc);
         // (does this need an extra cycle, or ar these available immediately?? )
         rv1 <= gpr.read_rs1(di.rs1);
         rv2 <= gpr.read_rs2(di.rs2);
-        
+
         pc_imm <= extend(pc) + di.imm; 
 
         state <= EXEC;
@@ -156,7 +159,7 @@ module mkCPU(CPU_Ifc);
                 rvd <= extend(pc_4);
             end
             SYSTEM: begin
-                state <= WB;
+                state <= HALT;
             end
         endcase
     endrule 
@@ -206,6 +209,15 @@ module mkCPU(CPU_Ifc);
 
         state <= FETCH;
     endrule 
+
+    method Bool running();
+        return !(state == HALT);
+    endmethod 
+
+    method Action restart() if (state == HALT);
+        pc <= reset_addr;
+        state <= FETCH;
+    endmethod
 
     interface MemClient mem_client;
         interface Get request = toGet(to_mem);

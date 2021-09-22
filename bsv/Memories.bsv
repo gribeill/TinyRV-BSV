@@ -8,6 +8,8 @@ import Connectable::*;
 
 import RV32I::*;
 
+Bool debug = True; 
+
 //A memory request.
 typedef struct {
     Bool write; //true = write to memory, false = read from memory
@@ -48,11 +50,14 @@ instance Connectable#(MemClient, RegFile#(Bit#(mem_w), Word))
             Bit#(mem_w) addr = truncate(request.addr);
             Word old_data = rf.sub(addr);
             if (request.write) begin
-                Word newdata = mask_data(request.data, request.mask);
+                let newdata = mask_data(request.data, request.mask);
                 rf.upd(addr, newdata);
+                if (debug) $display("[%t] MEM WRITE %x @ %x", $time, newdata, addr);
             end
             else begin 
-                read_results.enq(mask_data(old_data, request.mask));
+                let newdata = mask_data(old_data, request.mask);
+                read_results.enq(newdata);
+                if (debug) $display("[%t] MEM READ %x @ %x", $time, newdata, addr);
             end
         endrule 
 

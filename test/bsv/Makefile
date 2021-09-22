@@ -8,7 +8,7 @@ SOURCES = $(wildcard *.bsv)
 
 %.out: %.bsv
 	bsc -sim -g mkTbCPU -u -p ../../bsv:.:%/Libraries $<
-	bsc -sim -e mkTbCPU -o $@ 
+	bsc -sim -e mkTbCPU -p ../../bsv:.:%/Libraries -o $@ 
 	rm -f *.ba *.bo *.cxx *.h 
 
 .PHONY: build 
