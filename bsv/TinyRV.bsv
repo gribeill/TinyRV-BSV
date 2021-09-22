@@ -11,8 +11,10 @@ import RV32I::*;
 import Registers::*;
 import ALU::*;
 
+//Reset address of CPU
 MemAddr reset_addr = 0;
 
+//CPU pipeline stages. 
 typedef enum {
     FETCH    = 7'b0000001,
     DECODE   = 7'b0000010,
@@ -34,31 +36,37 @@ module mkCPU(CPU_Ifc);
     Reg#(State)   state <- mkReg(FETCH);
     Reg#(MemAddr) pc    <- mkReg(reset_addr);
 
+    //PC and memory address updates
     Reg#(MemAddr) pc_4 <- mkReg(reset_addr);
-    Reg#(Word) pc_imm <- mkReg(0);
+    Reg#(Word)    pc_imm <- mkReg(0);
     Reg#(MemAddr) maddr <- mkReg(reset_addr);
 
+    //latched decoded instructions
     Reg#(DInstr) dinstr <- mkRegU; 
 
     GPR_Ifc gpr <- mkGPR;
     ALU_Ifc alu <- mkALU;
 
+    //Input and output register values. 
     Reg#(Word) rv1 <- mkReg(0);
     Reg#(Word) rv2 <- mkReg(0);
     Reg#(Word) rvd <- mkReg(0);
 
-    Reg#(Bool) reg_wb <- mkReg(False);
-    Reg#(Bool) pc_wb  <- mkReg(False);
+    //Control signals
+    Reg#(Bool) reg_wb <- mkReg(False); //Register will be written back.
+    Reg#(Bool) pc_wb  <- mkReg(False); //PC will be updated with something other than PC <= PC+4
     Reg#(Bool) is_branch <- mkReg(False);
     Reg#(Bool) is_alu    <- mkReg(False);
     Reg#(Bool) is_jalr   <- mkReg(False);
     Reg#(Bool) is_load   <- mkReg(False);
     Reg#(Bool) is_store  <- mkReg(False);
 
+    //Memory request/response FIFOs
     FIFO#(MemRequest)  to_mem <- mkFIFO;
     FIFO#(MemResponse) from_mem <- mkFIFO;
 
     rule fetch (state == FETCH);
+        //ask for the next instruction
         let mem_req = MemRequest{ write: False, 
                           mask: W,
                           addr: pc,
@@ -76,14 +84,17 @@ module mkCPU(CPU_Ifc);
     endrule 
 
     rule decode (state == DECODE);
+        //get the next instruction from memory, decode
         let instr = from_mem.first.data; 
         from_mem.deq;
         let di = fv_decode(instr);
         dinstr <= di; 
 
+        //read from the register file 
+        // (does this need an extra cycle, or ar these available immediately?? )
         rv1 <= gpr.read_rs1(di.rs1);
         rv2 <= gpr.read_rs2(di.rs2);
-
+        
         pc_imm <= extend(pc) + di.imm; 
 
         state <= EXEC;
