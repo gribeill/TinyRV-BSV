@@ -1,4 +1,4 @@
-package FemtoBSV;
+package TinyRV;
 
 // Library imports
 import FIFO::*;
