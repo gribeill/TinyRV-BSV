@@ -16,7 +16,7 @@ SECTIONS
 {
   /* Read-only sections, merged into text segment: */
   PROVIDE (__executable_start = SEGMENT_START("text-segment", 0x00000)); . = SEGMENT_START("text-segment", 0x00000);
-  PROVIDE (__stack_top = ORIGIN(RAM) + LENGTH(RAM));
+  PROVIDE (__stack_top = ORIGIN(RAM) + 0x200);
   .interp         : { *(.interp) }
   .note.gnu.build-id : { *(.note.gnu.build-id) }
   .hash           : { *(.hash) }
@@ -199,8 +199,9 @@ SECTIONS
   . = SEGMENT_START("ldata-segment", .);
   . = ALIGN(32 / 8);
   __BSS_END__ = .;
-    __global_pointer$ = MIN(__SDATA_BEGIN__ + 0x800,
-		            MAX(__DATA_BEGIN__ + 0x800, __BSS_END__ - 0x800));
+    /*__global_pointer$ = MIN(__SDATA_BEGIN__ + 0x800,
+		            MAX(__DATA_BEGIN__ + 0x800, __BSS_END__ - 0x800));*/
+      __global_pointer$ = 0x300;
   _end = .; PROVIDE (end = .);
   . = DATA_SEGMENT_END (.);
   /* Stabs debugging sections.  */
