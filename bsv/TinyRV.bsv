@@ -119,7 +119,8 @@ module mkCPU(CPU_Ifc);
                 end
             ALUREG: begin
                     ALUinput in = tagged ALUexec{f3: unpack(dinstr.funct3), 
-                                                 bit30: dinstr.funct7[5]};
+                                                 bit30: dinstr.funct7[5],
+                                                 isImm: False};
                     alu.write(in, rv1, rv2);
                     reg_wb <= True;
                     is_alu <= True;
@@ -128,7 +129,8 @@ module mkCPU(CPU_Ifc);
                 end
             ALUIMM: begin
                     ALUinput in = tagged ALUexec{f3: unpack(dinstr.funct3), 
-                                                 bit30: dinstr.funct7[5]};
+                                                 bit30: dinstr.funct7[5],
+                                                 isImm: True};
                     alu.write(in, rv1, dinstr.imm);
                     reg_wb <= True;
                     is_alu <= True; 
@@ -176,6 +178,7 @@ module mkCPU(CPU_Ifc);
 
     rule wait_alu (state == WAIT);
         let alu_result <- alu.read();
+        if (debug) $display("[%t] ALU: %x", $time, alu_result);
         if (is_alu) rvd <= alu_result;
         if (is_branch) begin
             if (alu_result == 1) begin

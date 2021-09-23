@@ -5,6 +5,8 @@ import FIFOF::*;
 
 import RV32I::*;
 
+Bool debug = True;
+
 //Return type of combinatorial ALU operations.
 typedef struct {
     Word sum;
@@ -21,6 +23,7 @@ typedef union tagged {
     struct {
         ALUF3 f3;
         bit   bit30;
+        Bool  isImm;
     } ALUexec;
     BranchF3 BRexec;
 } ALUinput deriving (Bits, Eq);
@@ -90,11 +93,11 @@ module mkALU(ALU_Ifc);
 
         Bool is_shift = False;
 
-        if (in matches tagged ALUexec {f3: .f3, bit30: .bit30}) begin
+        if (in matches tagged ALUexec {f3: .f3, bit30: .bit30, isImm: .isImm}) begin
 
             case (f3) matches
                 PM  : begin 
-                            if (bit30 == 0) 
+                            if ((bit30 == 0) || (isImm)) 
                                 out = ops.sum; 
                             else 
                                 out = ops.minus;
@@ -117,10 +120,10 @@ module mkALU(ALU_Ifc);
 
             case (f3) matches
 
-                BEQ: out = extend(ops.eq);
-                BNE: out = extend(~ops.eq);
-                BLT: out = extend(ops.lt);
-                BGE: out = extend(~ops.lt);
+                BEQ:  out = extend(ops.eq);
+                BNE:  out = extend(~ops.eq);
+                BLT:  out = extend(ops.lt);
+                BGE:  out = extend(~ops.lt);
                 BLTU: out = extend(ops.ltu);
                 BGEU: out = extend(~ops.ltu);
             endcase
