@@ -8,10 +8,11 @@ OUTPUT_FORMAT("elf32-littleriscv", "elf32-littleriscv",
 OUTPUT_ARCH(riscv)
 MEMORY
 {
-  RAM (rwx) : ORIGIN = 0x00000, LENGTH = 0x3FF
+  RAM (rwx) : ORIGIN = 0x01000, LENGTH = 0x3FF
 }
 ENTRY(_start)
 SEARCH_DIR("/opt/riscv32i/riscv32-unknown-elf/lib");
+SEARCH_DIR("/opt/riscv/riscv32-unknown-elf/lib");
 SECTIONS
 {
   /* Read-only sections, merged into text segment: */
