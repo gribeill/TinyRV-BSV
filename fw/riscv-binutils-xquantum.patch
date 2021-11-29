@@ -1,0 +1,138 @@
+diff --git a/gas/config/tc-riscv.c b/gas/config/tc-riscv.c
+index 70cbc8190f..e291eb43fb 100644
+--- a/gas/config/tc-riscv.c
++++ b/gas/config/tc-riscv.c
+@@ -343,6 +343,9 @@ riscv_multi_subset_supports (enum riscv_insn_class insn_class)
+     case INSN_CLASS_ZBC:
+       return riscv_subset_supports ("zbc");
+ 
++    case INSN_CLASS_QUANTUM:
++      return riscv_subset_supports ("xquantum");
++
+     default:
+       as_fatal ("internal: unreachable");
+       return false;
+diff --git a/include/opcode/riscv-opc.h b/include/opcode/riscv-opc.h
+index 9999da6241..b98c0a2836 100644
+--- a/include/opcode/riscv-opc.h
++++ b/include/opcode/riscv-opc.h
+@@ -20,6 +20,7 @@
+ 
+ #ifndef RISCV_ENCODING_H
+ #define RISCV_ENCODING_H
++
+ /* Instruction opcode macros.  */
+ #define MATCH_SLLI_RV32 0x1013
+ #define MASK_SLLI_RV32  0xfe00707f
+@@ -852,6 +853,44 @@
+ #define CSR_MDBOUND 0x385
+ #define CSR_MSCOUNTEREN 0x321
+ #define CSR_MHCOUNTEREN 0x322
++/* XQuantum */
++#define MATCH_WFMPLAY 0x2b
++#define MASK_WFMPLAY  0xfe00707f
++#define MATCH_WFMFTCH 0x200002b
++#define MASK_WFMFTCH  0xfe00707f
++#define MATCH_WFMWAIT 0x400002b
++#define MASK_WFMWAIT  0xfe00707f
++#define MATCH_WFMTAPLAY 0x600002b
++#define MASK_WFMTAPLAY  0xfe00707f
++#define MATCH_WFMTAFTCH 0x800002b
++#define MASK_WFMTAFTCH  0xfe00707f
++#define MATCH_WFMTAWAIT 0xa00002b
++#define MASK_WFMTAWAIT  0xfe00707f
++#define MATCH_MRKPLAYHI 0x102b
++#define MASK_MRKPLAYHI  0xfe00707f
++#define MATCH_MRKFTCHHI 0x200102b
++#define MASK_MRKFTCHHI  0xfe00707f
++#define MATCH_MRKWAITHI 0x400102b
++#define MASK_MRKWAITHI  0xfe00707f
++#define MATCH_MRKPLAYLO 0x600102b
++#define MASK_MRKPLAYLO  0xfe00707f
++#define MATCH_MRKFTCHLO 0x800102b
++#define MASK_MRKFTCHLO  0xfe00707f
++#define MATCH_MRKWAITLO 0xa00102b
++#define MASK_MRKWAITLO  0xfe00707f
++#define MATCH_MODPHAS 0x202b
++#define MASK_MODPHAS  0xfe00707f
++#define MATCH_MODFREQ 0x200202b
++#define MASK_MODFREQ  0xfe00707f
++#define MATCH_MODFRAM 0x400202b
++#define MASK_MODFRAM  0xfe00707f
++#define MATCH_WAIT 0x302b
++#define MASK_WAIT  0xfe00707f
++#define MATCH_SYNC 0x402b
++#define MASK_SYNC  0xfe00707f
++#define MATCH_FTCH 0x502b
++#define MASK_FTCH  0xfe00707f
++
+ /* Unprivileged CSR addresses.  */
+ #define CSR_FFLAGS 0x1
+ #define CSR_FRM 0x2
+@@ -1162,6 +1201,23 @@ DECLARE_INSN(c_sd, MATCH_C_SD, MASK_C_SD)
+ DECLARE_INSN(c_addiw, MATCH_C_ADDIW, MASK_C_ADDIW)
+ DECLARE_INSN(c_ldsp, MATCH_C_LDSP, MASK_C_LDSP)
+ DECLARE_INSN(c_sdsp, MATCH_C_SDSP, MASK_C_SDSP)
++
++DECLARE_INSN(wfmplay, MATCH_WFMPLAY, MASK_WFMPLAY)
++DECLARE_INSN(wfmftch, MATCH_WFMFTCH, MASK_WFMFTCH)
++DECLARE_INSN(wfmwait, MATCH_WFMWAIT, MASK_WFMWAIT)
++DECLARE_INSN(wfmtaplay, MATCH_WFMTAPLAY, MASK_WFMTAPLAY)
++DECLARE_INSN(wfmtaftch, MATCH_WFMTAFTCH, MASK_WFMTAFTCH)
++DECLARE_INSN(wfmtawait, MATCH_WFMTAWAIT, MASK_WFMTAWAIT)
++DECLARE_INSN(mrkplay, MATCH_MRKPLAY, MASK_MRKPLAY)
++DECLARE_INSN(mrkftch, MATCH_MRKFTCH, MASK_MRKFTCH)
++DECLARE_INSN(mrkwait, MATCH_MRKWAIT, MASK_MRKWAIT)
++DECLARE_INSN(modphas, MATCH_MODPHAS, MASK_MODPHAS)
++DECLARE_INSN(modfreq, MATCH_MODFREQ, MASK_MODFREQ)
++DECLARE_INSN(modfram, MATCH_MODFRAM, MASK_MODFRAM)
++DECLARE_INSN(wait, MATCH_WAIT, MASK_WAIT)
++DECLARE_INSN(sync, MATCH_SYNC, MASK_SYNC)
++DECLARE_INSN(ftch, MATCH_FTCH, MASK_FTCH)
++DECLARE_INSN(ftchi, MATCH_FTCHI, MASK_FTCHI)
+ #endif /* DECLARE_INSN */
+ #ifdef DECLARE_CSR
+ /* Privileged CSRs.  */
+diff --git a/include/opcode/riscv.h b/include/opcode/riscv.h
+index fdf3df4f5c..e062957f71 100644
+--- a/include/opcode/riscv.h
++++ b/include/opcode/riscv.h
+@@ -319,6 +319,7 @@ enum riscv_insn_class
+   INSN_CLASS_ZBA,
+   INSN_CLASS_ZBB,
+   INSN_CLASS_ZBC,
++  INSN_CLASS_QUANTUM,
+ };
+ 
+ /* This structure holds information for a particular instruction.  */
+diff --git a/opcodes/riscv-opc.c b/opcodes/riscv-opc.c
+index f55a01b071..728ea1f03d 100644
+--- a/opcodes/riscv-opc.c
++++ b/opcodes/riscv-opc.c
+@@ -398,6 +398,26 @@ const struct riscv_opcode riscv_opcodes[] =
+ {"subw",       64, INSN_CLASS_C, "Cs,Cw,Ct",  MATCH_C_SUBW, MASK_C_SUBW, match_opcode, INSN_ALIAS },
+ {"subw",       64, INSN_CLASS_I, "d,s,t",     MATCH_SUBW, MASK_SUBW, match_opcode, 0 },
+ 
++/* Xquantum instruction subset.  */
++{"wfmplay",    0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_WFMPLAY, MASK_WFMPLAY, match_opcode, 0},
++{"wfmftch",    0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_WFMFTCH, MASK_WFMFTCH, match_opcode, 0},
++{"wfmwait",    0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_WFMWAIT, MASK_WFMWAIT, match_opcode, 0},
++{"wfmtaplay",  0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_WFMTAPLAY, MASK_WFMTAPLAY, match_opcode, 0},
++{"wfmtaftch",  0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_WFMTAFTCH, MASK_WFMTAFTCH, match_opcode, 0},
++{"wfmtawait",  0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_WFMTAWAIT, MASK_WFMTAWAIT, match_opcode, 0},
++{"mrkplayhi",  0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_MRKPLAYHI, MASK_MRKPLAYHI, match_opcode, 0},
++{"mrkftchhi",  0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_MRKFTCHHI, MASK_MRKFTCHHI, match_opcode, 0},
++{"mrkwaithi",  0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_MRKWAITHI, MASK_MRKWAITHI, match_opcode, 0},
++{"mrkplaylo",  0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_MRKPLAYLO, MASK_MRKPLAYLO, match_opcode, 0},
++{"mrkftchlo",  0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_MRKFTCHLO, MASK_MRKFTCHLO, match_opcode, 0},
++{"mrkwaitlo",  0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_MRKWAITLO, MASK_MRKWAITLO, match_opcode, 0},
++{"modphas",    0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_MODPHAS, MASK_MODPHAS, match_opcode, 0},
++{"modfreq",    0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_MODFREQ, MASK_MODFREQ, match_opcode, 0},
++{"modfram",    0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_MODFRAM, MASK_MODFRAM, match_opcode, 0},
++{"wait",       0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_WAIT, MASK_WAIT, match_opcode, 0},
++{"sync",       0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_SYNC, MASK_SYNC, match_opcode, 0},
++{"ftch",       0, INSN_CLASS_QUANTUM,   "d,s,t", MATCH_FTCH, MASK_FTCH, match_opcode, 0},
++
+ /* Atomic memory operation instruction subset.  */
+ {"lr.w",            0, INSN_CLASS_A, "d,0(s)",   MATCH_LR_W, MASK_LR_W|MASK_AQRL, match_opcode, INSN_DREF|INSN_4_BYTE },
+ {"sc.w",            0, INSN_CLASS_A, "d,t,0(s)", MATCH_SC_W, MASK_SC_W|MASK_AQRL, match_opcode, INSN_DREF|INSN_4_BYTE },
