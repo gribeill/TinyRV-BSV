@@ -5,7 +5,7 @@ import ClientServer::*;
 import RegFile::*;
 import FIFO::*;
 import Connectable::*;
-
+import BRAM::*;
 import RV32I::*;
 
 Bool debug = True; 
@@ -65,6 +65,40 @@ instance Connectable#(MemClient, RegFile#(Bit#(mem_w), Word))
             let response = read_results.first; read_results.deq;
             client.response.put(MemResponse {data : response});
         endrule 
+    endmodule
+endinstance 
+
+//A connectable between a memory client and a register file for simulation.
+//Address width of register file can be less than full address width of bus.
+instance Connectable#(MemClient, BRAMServer#(Bit#(mem_w), Word))
+    provisos (Add#(a__, mem_w, AddrWidth)); //what does a__ mean???
+    module mkConnection#(MemClient client, BRAMServer#(Bit#(mem_w), Word) bram_port)(Empty);
+
+        FIFO#(Word) read_results <- mkLFIFO;
+        FIFO#(LSF3) cached_masks <- mkLFIFO;
+
+        rule connect_requests;
+            let request <- client.request.get();
+            Bit#(mem_w) addr = truncate(request.addr >> 2);
+            
+            if (request.write) begin
+                let masked_data = mask_data(request.data, request.mask);
+                bram_port.request.put(BRAMRequest{write: request.write, responseOnWrite: False, address: request.addr, datain: masked_data});
+                if (debug) $display("[%t] BRAM WRITE %x @ %x", $time, request.data, addr);
+            end
+            else begin 
+                bram_port.request.put(BRAMRequest{write: request.write, responseOnWrite: False, address: request.addr, datain: request.data});
+                cached_masks.enq(request.mask);
+                if (debug) $display("[%t] BRAM READ @ %x", $time, addr);
+            end
+        endrule 
+
+        rule connect_responses;
+            let resp <- bram_port.response.get;
+            let m <- cached_masks.first; cached_masks.deq;
+            client.response.put(MemResponse {data : mask_data(resp, m)});
+            if (debug) $display("[%t] BRAM READ @ %x yields %x", $time, addr, mask_data(resp, m));
+        endrule
     endmodule
 endinstance 
 
