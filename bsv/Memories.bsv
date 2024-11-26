@@ -8,6 +8,9 @@ import Connectable::*;
 import BRAM::*;
 import RV32I::*;
 
+import BlueLib :: *;
+import BlueAXI :: *;
+
 Bool debug = True; 
 
 //A memory request.
@@ -68,18 +71,62 @@ instance Connectable#(MemClient, RegFile#(Bit#(mem_w), Word))
     endmodule
 endinstance 
 
-//A connectable between a memory client and a register file for simulation.
+interface Cache;
+    interface BRAMServer#(Bit#(24), Word) cpu_bram_port;
+    interface AXI4_Lite_Slave_Wr_Fab#(24, 32) axi4l_cache_write_s;
+endinterface
+
+(* synthesize *)
+module mkCache(Cache);
+    
+    // Create the BRAM
+    BRAM_Configure cfg = defaultValue;
+    cfg.loadFormat = tagged None; 
+    cfg.allowWriteResponseBypass = False;
+    BRAM2Port#(Bit#(24), Word) bram <- mkBRAM2Server(cfg);
+
+    // Create the AXI interface
+    AXI4_Lite_Slave_Wr#(24,32) axi4l_cache_write_s_inst <- mkAXI4_Lite_Slave_Wr_24_32;
+
+    rule axi4l_cache_write_s_drain; 
+      let payload <- axi4l_cache_write_s_inst.request.get;
+      printColorTimed(GREEN, $format("Cache writing %h to addr %h", payload.data, payload.addr));
+      AXI4_Lite_Write_Rs_Pkg resp = AXI4_Lite_Write_Rs_Pkg {resp: OKAY};
+      axi4l_cache_write_s_inst.response.put(resp);
+
+      bram.portA.request.put(BRAMRequest{write: True, responseOnWrite: False, address: payload.addr, datain: payload.data});
+    endrule
+
+    interface cpu_bram_port = bram.portB;
+    interface axi4l_cache_write_s = axi4l_cache_write_s_inst.fab;
+    
+endmodule
+
+(* synthesize *)
+module mkAXI4_Lite_Slave_Wr_24_32 (AXI4_Lite_Slave_Wr#(24,32));
+   let ifc <- mkAXI4_Lite_Slave_Wr(1);
+   return ifc;
+endmodule
+
+(* synthesize *)
+module mkAXI4_Lite_Master_Wr_24_32 (AXI4_Lite_Master_Wr#(24,32));
+   let ifc <- mkAXI4_Lite_Master_Wr(1);
+   return ifc;
+endmodule
+
+
+//A connectable between a memory client and a register file for synthesis
 //Address width of register file can be less than full address width of bus.
-instance Connectable#(MemClient, BRAMServer#(Bit#(mem_w), Word))
-    provisos (Add#(a__, mem_w, AddrWidth)); //what does a__ mean???
-    module mkConnection#(MemClient client, BRAMServer#(Bit#(mem_w), Word) bram_port)(Empty);
+instance Connectable#(MemClient, BRAMServer#(Bit#(24), Word));
+    // provisos (Add#(a__, mem_w, 24)); //what does a__ mean???
+    module mkConnection#(MemClient client, BRAMServer#(Bit#(24), Word) bram_port)(Empty);
 
         FIFO#(Word) read_results <- mkLFIFO;
         FIFO#(LSF3) cached_masks <- mkLFIFO;
 
         rule connect_requests;
             let request <- client.request.get();
-            Bit#(mem_w) addr = truncate(request.addr >> 2);
+            Bit#(24) addr = truncate(request.addr >> 2);
             
             if (request.write) begin
                 let masked_data = mask_data(request.data, request.mask);
@@ -95,9 +142,9 @@ instance Connectable#(MemClient, BRAMServer#(Bit#(mem_w), Word))
 
         rule connect_responses;
             let resp <- bram_port.response.get;
-            let m <- cached_masks.first; cached_masks.deq;
-            client.response.put(MemResponse {data : mask_data(resp, m)});
-            if (debug) $display("[%t] BRAM READ @ %x yields %x", $time, addr, mask_data(resp, m));
+            let mask = cached_masks.first;
+            cached_masks.deq;
+            client.response.put(MemResponse {data : mask_data(resp, mask)});
         endrule
     endmodule
 endinstance 

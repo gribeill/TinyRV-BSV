@@ -11,6 +11,9 @@ import RV32I::*;
 import Registers::*;
 import ALU::*;
 
+// Third Party Libraries
+import BlueLib::*;
+
 //Reset address of CPU
 MemAddr reset_addr = 0;
 
@@ -29,16 +32,16 @@ typedef enum {
 } State deriving (Bits, Eq);
 
 
-interface CPU_Ifc;
+interface TinyRV;
     interface MemClient mem_client; 
     method Bool running;
     method Action restart();
 endinterface
 
 (*synthesize*)
-module mkCPU(CPU_Ifc);
+module mkTinyRV(TinyRV);
 
-    Reg#(State)   state <- mkReg(FETCH);
+    Reg#(State)   state <- mkReg(HALT);
     Reg#(MemAddr) pc    <- mkReg(reset_addr);
 
     //PC and memory address updates
