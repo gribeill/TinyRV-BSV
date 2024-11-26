@@ -130,13 +130,13 @@ instance Connectable#(MemClient, BRAMServer#(Bit#(24), Word));
             
             if (request.write) begin
                 let masked_data = mask_data(request.data, request.mask);
-                bram_port.request.put(BRAMRequest{write: request.write, responseOnWrite: False, address: request.addr, datain: masked_data});
-                if (debug) printColorTimed(BLUE, $format("BRAM WRITE %x @ %x", request.data, request.addr));
+                bram_port.request.put(BRAMRequest{write: request.write, responseOnWrite: False, address: addr, datain: masked_data});
+                if (debug) printColorTimed(BLUE, $format("BRAM WRITE %x @ %x", request.data, addr));
             end
             else begin 
-                bram_port.request.put(BRAMRequest{write: request.write, responseOnWrite: False, address: request.addr, datain: request.data});
+                bram_port.request.put(BRAMRequest{write: request.write, responseOnWrite: False, address: addr, datain: request.data});
                 cached_masks.enq(request.mask);
-                if (debug) printColorTimed(BLUE, $format("BRAM READ @ %x", request.addr));
+                if (debug) printColorTimed(BLUE, $format("BRAM READ @ %x", addr));
             end
         endrule 
 
@@ -145,6 +145,7 @@ instance Connectable#(MemClient, BRAMServer#(Bit#(24), Word));
             let mask = cached_masks.first;
             cached_masks.deq;
             client.response.put(MemResponse {data : mask_data(resp, mask)});
+            if (debug) printColorTimed(BLUE, $format("BRAM READ yielded %x", mask_data(resp, mask)));
         endrule
     endmodule
 endinstance 
