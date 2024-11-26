@@ -75,7 +75,7 @@ module mkTinyRV(TinyRV);
 
     rule fetch (state == FETCH);
         //ask for the next instruction
-        if (debug) $display("[%t] FETCH %x", $time, pc);
+        if (debug) printColorTimed(NORMAL, $format("FETCH %x", pc));
         let mem_req = MemRequest{ write: False, 
                           mask: W,
                           addr: pc,
@@ -128,7 +128,7 @@ module mkTinyRV(TinyRV);
                     reg_wb <= True;
                     is_alu <= True;
                     state <= WAIT;
-                    if (debug) $display("[%t] ALUREG %d %d", $time, dinstr.rs1, dinstr.rs2);
+                    if (debug) printColorTimed(NORMAL, $format("ALUREG %d %d", dinstr.rs1, dinstr.rs2));
                 end
             ALUIMM: begin
                     ALUinput in = tagged ALUexec{f3: unpack(dinstr.funct3), 
@@ -138,7 +138,7 @@ module mkTinyRV(TinyRV);
                     reg_wb <= True;
                     is_alu <= True; 
                     state <= WAIT; 
-                    if (debug) $display("[%t] ALUIMM %d %x", $time, dinstr.rs1, dinstr.imm);
+                    if (debug) printColorTimed(NORMAL, $format("ALUIMM %d %x", dinstr.rs1, dinstr.imm));
                 end
             LOAD: begin
                 is_load <= True;
@@ -153,19 +153,19 @@ module mkTinyRV(TinyRV);
                     reg_wb <= True;
                     rvd <= dinstr.imm;
                     state <= WB;
-                    if (debug) $display("[%t] LUI %x", $time, dinstr.imm);
+                    if (debug) printColorTimed(NORMAL, $format("LUI %x", dinstr.imm));
                 end
             AUIPC: begin
                     reg_wb <= True;
                     rvd <= pc_imm;
                     state <= WB;
-                    if (debug) $display("[%t] AUIPC %x", $time, pc_imm);
+                    if (debug) printColorTimed(NORMAL, $format("AUIPC %x", pc_imm));
             end
             JAL: begin
                 reg_wb <= True; pc_wb <= True;
                 rvd <= extend(pc_4);
                 state <= WB; 
-                if (debug) $display("[%t] JAL %x", $time, pc_imm);
+                if (debug) printColorTimed(NORMAL, $format("JAL %x", pc_imm));
             end
             JALR: begin
                 reg_wb <= True; pc_wb <= True; is_jalr <= True; 
@@ -174,22 +174,22 @@ module mkTinyRV(TinyRV);
             end
             SYSTEM: begin
                 state <= HALT;
-                if (debug) $display("[%t] SYSTEM", $time);
+                if (debug) printColorTimed(NORMAL, $format("SYSTEM"));
             end
         endcase
     endrule 
 
     rule wait_alu (state == WAIT);
         let alu_result <- alu.read();
-        if (debug) $display("[%t] ALU: %x", $time, alu_result);
+        if (debug) printColorTimed(NORMAL, $format("ALU: %x", alu_result));
         if (is_alu) rvd <= alu_result;
         if (is_branch) begin
             if (alu_result == 1) begin
                 pc_wb <= True;
-                if (debug) $display("[%t] BRANCH TAKEN (%d %d) %x", $time, dinstr.rs1, dinstr.rs2, alu_result);
+                if (debug) printColorTimed(NORMAL, $format("BRANCH TAKEN (%d %d) %x", dinstr.rs1, dinstr.rs2, alu_result));
             end else begin
                 pc_wb <= False;
-                if (debug) $display("[%t] BRANCH NOT TAKEN (%d %d) %x", $time, dinstr.rs1, dinstr.rs2, alu_result);
+                if (debug) printColorTimed(NORMAL, $format("BRANCH NOT TAKEN (%d %d) %x", dinstr.rs1, dinstr.rs2, alu_result));
             end
         end
         state <= WB;
@@ -203,7 +203,7 @@ module mkTinyRV(TinyRV);
                                     data: 0};
             to_mem.enq(mem_req);
             state <= WAIT_MEM; 
-            if (debug) $display("[%t] LOAD @ %x", $time, maddr);
+            if (debug) printColorTimed(NORMAL, $format("LOAD @ %x", maddr));
         end else
         if (is_store) begin 
             let mem_req = MemRequest{write: True, 
@@ -212,7 +212,7 @@ module mkTinyRV(TinyRV);
                                      data: rv2};
             to_mem.enq(mem_req);
             state <= WB;
-            if (debug) $display("[%t] STORE %x @ %x", $time, rv2, maddr);
+            if (debug) printColorTimed(NORMAL, $format("STORE %x @ %x", rv2, maddr));
         end
     endrule
 
@@ -225,12 +225,12 @@ module mkTinyRV(TinyRV);
     rule writeback (state == WB);
         if (reg_wb) begin 
             gpr.write_rd(dinstr.rd, rvd);
-            if (debug) $display("[%t] WB %d %x", $time, dinstr.rd, rvd);
+            if (debug) printColorTimed(NORMAL, $format("WB %d %x", dinstr.rd, rvd));
         end
         if (pc_wb) begin
             if (is_jalr) begin
                 pc <= maddr;
-                if (debug) $display("[%t] JALR %x", $time, maddr);
+                if (debug) printColorTimed(NORMAL, $format("JALR %x", maddr));
             end
             else pc <= truncate(pc_imm);
         end else pc <= pc_4; 

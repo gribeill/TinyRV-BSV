@@ -90,7 +90,7 @@ module mkCache(Cache);
 
     rule axi4l_cache_write_s_drain; 
       let payload <- axi4l_cache_write_s_inst.request.get;
-      printColorTimed(GREEN, $format("Cache writing %h to addr %h", payload.data, payload.addr));
+      if(debug) printColorTimed(GREEN, $format("Cache portA writing %h to addr %h", payload.data, payload.addr));
       AXI4_Lite_Write_Rs_Pkg resp = AXI4_Lite_Write_Rs_Pkg {resp: OKAY};
       axi4l_cache_write_s_inst.response.put(resp);
 
@@ -131,12 +131,12 @@ instance Connectable#(MemClient, BRAMServer#(Bit#(24), Word));
             if (request.write) begin
                 let masked_data = mask_data(request.data, request.mask);
                 bram_port.request.put(BRAMRequest{write: request.write, responseOnWrite: False, address: request.addr, datain: masked_data});
-                if (debug) $display("[%t] BRAM WRITE %x @ %x", $time, request.data, addr);
+                if (debug) printColorTimed(BLUE, $format("BRAM WRITE %x @ %x", request.data, request.addr));
             end
             else begin 
                 bram_port.request.put(BRAMRequest{write: request.write, responseOnWrite: False, address: request.addr, datain: request.data});
                 cached_masks.enq(request.mask);
-                if (debug) $display("[%t] BRAM READ @ %x", $time, addr);
+                if (debug) printColorTimed(BLUE, $format("BRAM READ @ %x", request.addr));
             end
         endrule 
 
