@@ -80,7 +80,7 @@ module mkTinyRV(TinyRV);
                           mask: W,
                           addr: pc,
                           data: 0};
-        to_mem.enq(mem_req); 
+        to_mem.enq(mem_req);
         pc_4 <= pc + 4; 
         reg_wb <= False;
         pc_wb  <= False;
@@ -96,6 +96,7 @@ module mkTinyRV(TinyRV);
         //get the next instruction from memory, decode
         let instr = from_mem.first.data; 
         from_mem.deq;
+        if (debug) printColorTimed(NORMAL, $format("DECODE %x", pc));
         let di = fv_decode(instr);
         dinstr <= di; 
 
