@@ -2,9 +2,11 @@ package TinyRV;
 
 // Library imports
 import FIFO::*;
+import FIFOF::*;
 import GetPut::*;
 import ClientServer::*;
 import Memories::*;
+import SpecialFIFOs::*;
 
 //Project imports
 import RV32I::*;
@@ -70,8 +72,8 @@ module mkTinyRV(TinyRV);
     Reg#(Bool) is_store  <- mkReg(False);
 
     //Memory request/response FIFOs
-    FIFO#(MemRequest)  to_mem <- mkFIFO;
-    FIFO#(MemResponse) from_mem <- mkFIFO;
+    FIFO#(MemRequest)  to_mem <- mkBypassFIFO;
+    FIFO#(MemResponse) from_mem <- mkBypassFIFO;
 
     rule fetch (state == FETCH);
         //ask for the next instruction
@@ -96,7 +98,7 @@ module mkTinyRV(TinyRV);
         //get the next instruction from memory, decode
         let instr = from_mem.first.data; 
         from_mem.deq;
-        if (debug) printColorTimed(NORMAL, $format("DECODE %x", pc));
+        if (debug) printColorTimed(NORMAL, $format("DECODE %x : %x", pc, instr));
         let di = fv_decode(instr);
         dinstr <= di; 
 
@@ -197,6 +199,7 @@ module mkTinyRV(TinyRV);
     endrule 
 
     rule mem (state == MEM);
+        if (debug) printColorTimed(NORMAL, $format("MEM"));
         if (is_load) begin
             let mem_req = MemRequest{write: False,
                                     mask: unpack(dinstr.funct3),
@@ -218,6 +221,7 @@ module mkTinyRV(TinyRV);
     endrule
 
     rule wait_mem (state == WAIT_MEM);
+        if (debug) printColorTimed(NORMAL, $format("WAIT_MEM", maddr));
         rvd <= from_mem.first.data;
         from_mem.deq;
         state <= WB; 

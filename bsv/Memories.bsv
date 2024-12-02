@@ -76,13 +76,15 @@ endinstance
 interface Cache;
     interface BRAMServer#(Bit#(24), Word) cpu_bram_port; // Direct connection to BRAM
     interface AXI4_Lite_Slave_Wr_Fab#(24, 32) axi4l_cache_write_s;
-    interface Put#(MemRequest) mem_put;
-    interface Get#(MemResponse) mem_get;
+    interface MemServer mem_server;
 endinterface
 
 (* synthesize *)
 module mkCache(Cache);
     
+    // Store the mask in a register
+    Reg#(LSF3) cached_mask <- mkRegU;
+
     // Create the BRAM
     BRAM_Configure cfg = defaultValue;
     cfg.loadFormat = tagged None; 
@@ -91,11 +93,6 @@ module mkCache(Cache);
 
     // Create the AXI interface
     AXI4_Lite_Slave_Wr#(24,32) axi4l_cache_write_s_inst <- mkAXI4_Lite_Slave_Wr_24_32;
-
-    // FIFOs for get/put
-    FIFO#(MemRequest)  mem_req_fifo  <- mkBypassFIFO;
-    FIFO#(MemResponse) mem_resp_fifo <- mkBypassFIFO;
-    FIFO#(LSF3) cached_masks <- mkBypassFIFO;
 
     rule axi4l_cache_write_s_drain; 
       let payload <- axi4l_cache_write_s_inst.request.get;
@@ -106,44 +103,27 @@ module mkCache(Cache);
       bram.portA.request.put(BRAMRequest{write: True, responseOnWrite: False, address: payload.addr, datain: payload.data});
     endrule
 
-    rule mem_req_drain;
-        let request = mem_req_fifo.first; mem_req_fifo.deq;
-        let addr = request.addr >> 2;
-        let masked_data = mask_data(request.data, request.mask);
-        cached_masks.enq(request.mask);
-        if (debug) printColorTimed(BLUE, $format("BRAM Get/Put READ %x @ %x", request.data, addr));
-        bram.portB.request.put(BRAMRequest{write: request.write, responseOnWrite: False, address: addr, datain: masked_data});
-    endrule
 
-    rule mem_resp_drain;
-        let resp <- bram.portB.response.get;
-        let mask = cached_masks.first; cached_masks.deq;
-        mem_resp_fifo.enq(MemResponse {cache_miss: False, data : mask_data(resp, mask)});
-        if (debug) printColorTimed(BLUE, $format("BRAM Get/Put READ yielded %x", mask_data(resp, mask)));
-    endrule
+    interface MemServer mem_server;
+        interface Put request;
+            method Action put (MemRequest request);
+                let addr = request.addr >> 2;
+                let masked_data = mask_data(request.data, request.mask);
+                cached_mask <= request.mask;
+                if (debug) printColorTimed(BLUE, $format("BRAM Get/Put READ %x @ %x", request.data, addr));
+                bram.portB.request.put(BRAMRequest{write: request.write, responseOnWrite: False, address: addr, datain: masked_data});
+            endmethod
+        endinterface
 
-    interface Put mem_put;
-        method Action put (MemRequest request);
-            let addr = request.addr >> 2;
-            let masked_data = mask_data(request.data, request.mask);
-            cached_masks.enq(request.mask);
-            if (debug) printColorTimed(BLUE, $format("BRAM Get/Put READ %x @ %x", request.data, addr));
-            bram.portB.request.put(BRAMRequest{write: request.write, responseOnWrite: False, address: addr, datain: masked_data});
-        endmethod
+        interface Get response;
+            method ActionValue#(MemResponse) get ();
+                let resp <- bram.portB.response.get;
+                let mask = cached_mask;
+                if (debug) printColorTimed(BLUE, $format("BRAM Get/Put READ yielded %x", mask_data(resp, mask)));
+                return MemResponse {cache_miss: False, data : mask_data(resp, mask)};
+            endmethod
+        endinterface
     endinterface
-
-    interface Get mem_get;
-        method ActionValue#(MemResponse) get ();
-            let resp <- bram.portB.response.get;
-            let mask = cached_masks.first; cached_masks.deq;
-            if (debug) printColorTimed(BLUE, $format("BRAM Get/Put READ yielded %x", mask_data(resp, mask)));
-            return MemResponse {cache_miss: False, data : mask_data(resp, mask)};
-        endmethod
-    endinterface
-
-    // interface mem_put = fifoToPut (mem_req_fifo);
-    // interface mem_get = fifoToGet (mem_resp_fifo);
-
 
     interface cpu_bram_port = bram.portB;
     interface axi4l_cache_write_s = axi4l_cache_write_s_inst.fab;
@@ -161,41 +141,5 @@ module mkAXI4_Lite_Master_Wr_24_32 (AXI4_Lite_Master_Wr#(24,32));
    let ifc <- mkAXI4_Lite_Master_Wr(1);
    return ifc;
 endmodule
-
-
-//A connectable between a memory client and a register file for synthesis
-//Address width of register file can be less than full address width of bus.
-instance Connectable#(MemClient, BRAMServer#(Bit#(24), Word));
-    // provisos (Add#(a__, mem_w, 24)); //what does a__ mean???
-    module mkConnection#(MemClient client, BRAMServer#(Bit#(24), Word) bram_port)(Empty);
-
-        FIFO#(Word) read_results <- mkLFIFO;
-        FIFO#(LSF3) cached_masks <- mkLFIFO;
-
-        rule connect_requests;
-            let request <- client.request.get();
-            Bit#(24) addr = truncate(request.addr >> 2);
-            
-            if (request.write) begin
-                let masked_data = mask_data(request.data, request.mask);
-                bram_port.request.put(BRAMRequest{write: request.write, responseOnWrite: False, address: addr, datain: masked_data});
-                if (debug) printColorTimed(BLUE, $format("BRAM WRITE %x @ %x", request.data, addr));
-            end
-            else begin 
-                bram_port.request.put(BRAMRequest{write: request.write, responseOnWrite: False, address: addr, datain: request.data});
-                cached_masks.enq(request.mask);
-                if (debug) printColorTimed(BLUE, $format("BRAM READ @ %x", addr));
-            end
-        endrule 
-
-        rule connect_responses;
-            let resp <- bram_port.response.get;
-            let mask = cached_masks.first;
-            cached_masks.deq;
-            client.response.put(MemResponse {cache_miss: False, data : mask_data(resp, mask)});
-            if (debug) printColorTimed(BLUE, $format("BRAM READ yielded %x", mask_data(resp, mask)));
-        endrule
-    endmodule
-endinstance 
 
 endpackage
